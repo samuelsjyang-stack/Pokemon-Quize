@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>포켓몬 스무고개 퀴즈</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: linear-gradient(135deg, #2a75bb 0%, #ffcb05 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 20px;
+    max-width: 560px;
+    width: 100%;
+    padding: 28px 28px 32px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    border: 6px solid #2a75bb;
+  }
+  h1 {
+    text-align: center;
+    color: #2a3990;
+    margin: 0 0 4px;
+    font-size: 26px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: #333;
+  }
+  .attempts {
+    background: #ffcb05;
+    color: #2a3990;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+  }
+  .difficulty-badge {
+    background: #eef2ff;
+    color: #2a3990;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12.5px;
+  }
+  #loading {
+    text-align: center;
+    padding: 40px 0;
+    color: #2a3990;
+    font-weight: 600;
+  }
+  .hints {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .hint {
+    background: #f2f6ff;
+    border-left: 5px solid #2a75bb;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14.5px;
+    color: #222;
+    animation: pop .25s ease;
+  }
+  .hint b { color: #2a3990; }
+  .hint img {
+    display: block;
+    margin-top: 8px;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .guess-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  #guessInput {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid #ccc;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  #guessInput:focus { outline: none; border-color: #2a75bb; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 12px 18px;
+    transition: transform .08s ease, opacity .2s;
+  }
+  button:active { transform: scale(0.96); }
+  #guessBtn { background: #2a75bb; color: #fff; }
+  .action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  #newGameBtn {
+    background: #ffcb05;
+    color: #2a3990;
+    flex: 1;
+    display: none;
+  }
+  #changeDifficultyBtn {
+    background: #e7e7e7;
+    color: #333;
+    flex: 1;
+    display: none;
+  }
+  #message {
+    min-height: 24px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+  .msg-wrong { color: #d33; }
+  .msg-correct { color: #1a8f3c; }
+  .msg-over { color: #d33; }
+  .reveal {
+    text-align: center;
+    margin-top: 10px;
+    display: none;
+  }
+  .reveal img {
+    width: 160px;
+    height: 160px;
+    image-rendering: pixelated;
+    background: #f2f6ff;
+    border-radius: 16px;
+    padding: 6px;
+  }
+  .reveal .name {
+    font-size: 22px;
+    font-weight: 800;
+    color: #2a3990;
+    margin-top: 6px;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* 난이도 선택 화면 */
+  #difficultyScreen {
+    text-align: center;
+  }
+  #difficultyScreen p {
+    color: #555;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .diff-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .diff-btn {
+    padding: 16px;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 800;
+    border: 3px solid transparent;
+  }
+  .diff-btn small {
+    display: block;
+    font-weight: 500;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .diff-easy { background: #d9f7e3; color: #1a8f3c; }
+  .diff-medium { background: #fff3cd; color: #a3760a; }
+  .diff-hard { background: #f8d7da; color: #a12a3a; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔴 포켓몬 스무고개</h1>
+    <div class="subtitle">힌트를 보고 포켓몬 이름을 맞혀보세요! (한글 또는 영문 이름 모두 가능)</div>
+
+    <div id="difficultyScreen">
+      <p>난이도를 선택해주세요</p>
+      <div class="diff-options">
+        <button class="diff-btn diff-easy" data-diff="easy">쉬움<small>세대 → 타입 → 도감설명 → 실루엣 → 초성힌트 (기회 5번)</small></button>
+        <button class="diff-btn diff-medium" data-diff="medium">중간<small>종족값 → 타입 → 특성 → 알그룹 → 진화체 여부 등 (기회 7번)</small></button>
+        <button class="diff-btn diff-hard" data-diff="hard">어려움<small>종족값 → 성비 → 알그룹 → 특성 → 진화체 여부 → 키/몸무게 (기회 5번)</small></button>
+      </div>
+    </div>
+
+    <div id="gameArea" style="display:none;">
+      <div class="status-row">
+        <span class="difficulty-badge" id="difficultyBadge">난이도: -</span>
+        <span class="attempts" id="attemptsDisplay">기회 0</span>
+      </div>
+
+      <div id="loading">포켓몬 정보를 불러오는 중...</div>
+
+      <div class="hints" id="hints"></div>
+
+      <div id="message"></div>
+
+      <div class="guess-row" id="guessRow" style="display:none;">
+        <input type="text" id="guessInput" placeholder="포켓몬 이름을 입력하세요" autocomplete="off">
+        <button id="guessBtn">맞히기</button>
+      </div>
+
+      <div class="reveal" id="reveal">
+        <img id="revealImg" src="" alt="포켓몬">
+        <div class="name" id="revealName"></div>
+      </div>
+
+      <div class="action-row">
+        <button id="newGameBtn">🎮 같은 난이도로 다시</button>
+        <button id="changeDifficultyBtn">🔄 난이도 변경</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const TYPE_KO = {
+  normal:"노말", fire:"불꽃", water:"물", electric:"전기", grass:"풀",
+  ice:"얼음", fighting:"격투", poison:"독", ground:"땅", flying:"비행",
+  psychic:"에스퍼", bug:"벌레", rock:"바위", ghost:"고스트", dragon:"드래곤",
+  dark:"악", steel:"강철", fairy:"페어리"
+};
+const STAT_KO = {
+  hp:"체력", attack:"공격", defense:"방어",
+  "special-attack":"특수공격", "special-defense":"특수방어", speed:"스피드"
+};
+const GEN_KO = {
+  "generation-i":"1세대", "generation-ii":"2세대", "generation-iii":"3세대",
+  "generation-iv":"4세대", "generation-v":"5세대", "generation-vi":"6세대",
+  "generation-vii":"7세대", "generation-viii":"8세대", "generation-ix":"9세대"
+};
+const DIFFICULTY_LABEL = { easy: '쉬움', medium: '중간', hard: '어려움' };
+const CHOSUNG_LIST = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+const MAX_DEX_ID = 1025;
+
+let currentDifficulty = null;
+
+let state = {
+  hints: [],
+  hintIndex: 0,
+  attemptsLeft: 0,
+  maxAttempts: 0,
+  answerNames: [],
+  displayName: "",
+  spriteUrl: "",
+  over: false
+};
+
+const difficultyScreen = document.getElementById('difficultyScreen');
+const gameArea = document.getElementById('gameArea');
+const loadingEl = document.getElementById('loading');
+const hintsEl = document.getElementById('hints');
+const messageEl = document.getElementById('message');
+const guessRow = document.getElementById('guessRow');
+const guessInput = document.getElementById('guessInput');
+const guessBtn = document.getElementById('guessBtn');
+const newGameBtn = document.getElementById('newGameBtn');
+const changeDifficultyBtn = document.getElementById('changeDifficultyBtn');
+const attemptsDisplay = document.getElementById('attemptsDisplay');
+const difficultyBadge = document.getElementById('difficultyBadge');
+const revealBox = document.getElementById('reveal');
+const revealImg = document.getElementById('revealImg');
+const revealName = document.getElementById('revealName');
+
+function cleanFlavorText(text) {
+  return text.replace(/[\n\f\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function getChosung(str) {
+  let result = '';
+  for (const ch of str) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xAC00 && code <= 0xD7A3) {
+      const choIndex = Math.floor((code - 0xAC00) / 588);
+      result += CHOSUNG_LIST[choIndex];
+    } else if (ch === ' ') {
+      result += ' ';
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch failed: ' + url);
+  return res.json();
+}
+
+async function getKoreanAbilityName(ability) {
+  try {
+    const data = await fetchJson(ability.ability.url);
+    const koEntry = data.names.find(n => n.language.name === 'ko');
+    return koEntry ? koEntry.name : ability.ability.name;
+  } catch (e) {
+    return ability.ability.name;
+  }
+}
+
+async function getKoreanEggGroupName(eggGroup) {
+  try {
+    const data = await fetchJson(eggGroup.url);
+    const koEntry = data.names.find(n => n.language.name === 'ko');
+    return koEntry ? koEntry.name : eggGroup.name;
+  } catch (e) {
+    return eggGroup.name;
+  }
+}
+
+function getGenderRatioText(genderRate) {
+  if (genderRate === -1) {
+    return '성별이 없는 포켓몬입니다.';
+  }
+  const femalePercent = (genderRate / 8) * 100;
+  const malePercent = 100 - femalePercent;
+  return `수컷 ${malePercent}%, 암컷 ${femalePercent}% 입니다.`;
+}
+
+function pickRepresentativeStat(pokemon) {
+  const sortedStats = [...pokemon.stats].sort((a, b) => b.base_stat - a.base_stat);
+  let randomStat;
+  if (Math.random() < 0.85) {
+    randomStat = sortedStats[0];
+  } else {
+    const rest = sortedStats.slice(1);
+    randomStat = rest[Math.floor(Math.random() * rest.length)];
+  }
+  return randomStat;
+}
+
+function pickTrueRandomStat(pokemon) {
+  return pokemon.stats[Math.floor(Math.random() * pokemon.stats.length)];
+}
+
+async function loadNewPokemon() {
+  resetUI();
+  loadingEl.style.display = 'block';
+
+  const id = Math.floor(Math.random() * MAX_DEX_ID) + 1;
+
+  try {
+    const pokemon = await fetchJson(`https://pokeapi.co/api/v2/pokemon/${id}`);
+    const species = await fetchJson(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
+
+    // 이름들
+    const koNameEntry = species.names.find(n => n.language.name === 'ko');
+    const displayName = koNameEntry ? koNameEntry.name : pokemon.name;
+    const answerNames = new Set();
+    answerNames.add(pokemon.name.toLowerCase());
+    if (koNameEntry) answerNames.add(koNameEntry.name.toLowerCase());
+    species.names.forEach(n => {
+      if (n.language.name === 'en' || n.language.name === 'ko') {
+        answerNames.add(n.name.toLowerCase());
+      }
+    });
+
+    // 타입
+    const types = pokemon.types.map(t => TYPE_KO[t.type.name] || t.type.name).join(', ');
+
+    // 도감 설명
+    let flavorEntry = species.flavor_text_entries.find(e => e.language.name === 'ko');
+    if (!flavorEntry) flavorEntry = species.flavor_text_entries.find(e => e.language.name === 'en');
+    const flavorText = flavorEntry ? cleanFlavorText(flavorEntry.flavor_text) : '알 수 없음';
+
+    // 특성 (한글 변환)
+    const abilityNames = await Promise.all(pokemon.abilities.map(getKoreanAbilityName));
+    const abilitiesText = abilityNames.join(', ');
+
+    // 알그룹 (한글 변환)
+    const eggGroupNames = await Promise.all(species.egg_groups.map(getKoreanEggGroupName));
+    const eggGroupsText = eggGroupNames.length > 0 ? eggGroupNames.join(', ') : '없음';
+
+    // 성비
+    const genderRatioText = getGenderRatioText(species.gender_rate);
+
+    // 진화체 여부
+    const isEvolved = !!species.evolves_from_species;
+
+    // 세대
+    const genText = GEN_KO[species.generation.name] || species.generation.name;
+
+    // 키/몸무게 (API 단위: decimetre, hectogram)
+    const heightM = (pokemon.height / 10).toFixed(1);
+    const weightKg = (pokemon.weight / 10).toFixed(1);
+
+    // 스프라이트
+    const sprite = (pokemon.sprites.other &&
+                    pokemon.sprites.other['official-artwork'] &&
+                    pokemon.sprites.other['official-artwork'].front_default)
+                    || pokemon.sprites.front_default
+                    || '';
+
+    // 초성힌트
+    const chosungText = getChosung(displayName).split('').join(' ');
+
+    let hints = [];
+    let maxAttempts = 5;
+
+    if (currentDifficulty === 'easy') {
+      // 세대 -> 타입 -> 도감설명 -> 실루엣 -> 초성힌트
+      hints = [
+        `<b>세대:</b> 이 포켓몬은 ${genText} 포켓몬입니다.`,
+        `<b>타입:</b> 이 포켓몬의 타입은 ${types} 입니다.`,
+        `<b>도감설명:</b> ${flavorText}`,
+        `<b>실루엣:</b><img src="${sprite}" style="width:110px;height:110px;filter:brightness(0);">`,
+        `<b>초성힌트:</b> ${chosungText}`
+      ];
+      maxAttempts = 5;
+    } else if (currentDifficulty === 'medium') {
+      // 종족값 -> 타입 -> 특성 -> 알그룹 -> 진화체 여부 -> 키/몸무게 -> 세대
+      const repStat = pickRepresentativeStat(pokemon);
+      const repStatNameKo = STAT_KO[repStat.stat.name] || repStat.stat.name;
+      hints = [
+        `<b>종족값:</b> 이 포켓몬의 ${repStatNameKo} 종족값은 ${repStat.base_stat} 입니다.`,
+        `<b>타입:</b> 이 포켓몬의 타입은 ${types} 입니다.`,
+        `<b>특성:</b> 이 포켓몬이 가질 수 있는 특성은 ${abilitiesText} 입니다.`,
+        `<b>알그룹:</b> 이 포켓몬의 알그룹은 ${eggGroupsText} 입니다.`,
+        `<b>진화체 여부:</b> 이 포켓몬은 ${isEvolved ? '진화체 입니다 (진화를 거친 포켓몬)' : '진화 전(기본형) 포켓몬 입니다'}.`,
+        `<b>키와 몸무게:</b> 이 포켓몬의 키는 ${heightM}m, 몸무게는 ${weightKg}kg 입니다.`,
+        `<b>세대:</b> 이 포켓몬은 ${genText} 포켓몬입니다.`
+      ];
+      maxAttempts = 7;
+    } else if (currentDifficulty === 'hard') {
+      // 종족값(완전 무작위) -> 성비 -> 알그룹 -> 특성 -> 진화체 여부 -> 키/몸무게 (타입/세대/도감설명 없음)
+      const randStat = pickTrueRandomStat(pokemon);
+      const randStatNameKo = STAT_KO[randStat.stat.name] || randStat.stat.name;
+      hints = [
+        `<b>종족값:</b> 이 포켓몬의 ${randStatNameKo} 종족값은 ${randStat.base_stat} 입니다.`,
+        `<b>성비:</b> 이 포켓몬의 성비는 ${genderRatioText}`,
+        `<b>알그룹:</b> 이 포켓몬의 알그룹은 ${eggGroupsText} 입니다.`,
+        `<b>특성:</b> 이 포켓몬이 가질 수 있는 특성은 ${abilitiesText} 입니다.`,
+        `<b>진화체 여부:</b> 이 포켓몬은 ${isEvolved ? '진화체 입니다 (진화를 거친 포켓몬)' : '진화 전(기본형) 포켓몬 입니다'}.`,
+        `<b>키와 몸무게:</b> 이 포켓몬의 키는 ${heightM}m, 몸무게는 ${weightKg}kg 입니다.`
+      ];
+      maxAttempts = 5;
+    }
+
+    state = {
+      hints,
+      hintIndex: 1, // 첫 힌트는 시작할 때 바로 공개
+      attemptsLeft: maxAttempts,
+      maxAttempts,
+      answerNames: Array.from(answerNames),
+      displayName,
+      spriteUrl: sprite,
+      over: false
+    };
+
+    loadingEl.style.display = 'none';
+    renderHints();
+    updateAttempts();
+    difficultyBadge.textContent = `난이도: ${DIFFICULTY_LABEL[currentDifficulty]}`;
+    guessRow.style.display = 'flex';
+    guessInput.disabled = false;
+    guessBtn.disabled = false;
+    guessInput.focus();
+
+  } catch (err) {
+    loadingEl.textContent = '데이터를 불러오지 못했습니다. 네트워크 연결을 확인하고 "같은 난이도로 다시"를 눌러주세요.';
+    newGameBtn.style.display = 'block';
+    changeDifficultyBtn.style.display = 'block';
+    console.error(err);
+  }
+}
+
+function resetUI() {
+  hintsEl.innerHTML = '';
+  messageEl.textContent = '';
+  messageEl.className = '';
+  guessRow.style.display = 'none';
+  newGameBtn.style.display = 'none';
+  changeDifficultyBtn.style.display = 'none';
+  revealBox.style.display = 'none';
+  guessInput.value = '';
+}
+
+function renderHints() {
+  hintsEl.innerHTML = '';
+  for (let i = 0; i < state.hintIndex; i++) {
+    const div = document.createElement('div');
+    div.className = 'hint';
+    div.innerHTML = state.hints[i];
+    hintsEl.appendChild(div);
+  }
+  hintsEl.scrollTop = hintsEl.scrollHeight;
+}
+
+function updateAttempts() {
+  attemptsDisplay.textContent = `기회 ${state.attemptsLeft}`;
+}
+
+function normalize(str) {
+  return str.trim().toLowerCase();
+}
+
+function handleGuess() {
+  if (state.over) return;
+  const guess = normalize(guessInput.value);
+  if (!guess) return;
+
+  if (state.answerNames.includes(guess)) {
+    endGame(true);
+    return;
+  }
+
+  state.attemptsLeft -= 1;
+  updateAttempts();
+
+  if (state.hintIndex < state.hints.length) {
+    state.hintIndex += 1;
+    renderHints();
+  }
+
+  guessInput.value = '';
+
+  if (state.attemptsLeft <= 0) {
+    endGame(false);
+  } else {
+    messageEl.textContent = `틀렸습니다! 새로운 힌트가 공개됩니다. (남은 기회 ${state.attemptsLeft})`;
+    messageEl.className = 'msg-wrong';
+  }
+}
+
+function endGame(won) {
+  state.over = true;
+  guessRow.style.display = 'none';
+  newGameBtn.style.display = 'block';
+  changeDifficultyBtn.style.display = 'block';
+
+  // 남은 힌트 전부 공개
+  state.hintIndex = state.hints.length;
+  renderHints();
+
+  if (won) {
+    messageEl.textContent = `🎉 정답입니다! ${state.displayName}이(가) 맞습니다!`;
+    messageEl.className = 'msg-correct';
+  } else {
+    messageEl.textContent = `😢 기회를 모두 소진했습니다. 정답은 ${state.displayName} 였습니다.`;
+    messageEl.className = 'msg-over';
+  }
+
+  revealBox.style.display = 'block';
+  revealImg.src = state.spriteUrl;
+  revealName.textContent = state.displayName;
+}
+
+function startGame(difficulty) {
+  currentDifficulty = difficulty;
+  difficultyScreen.style.display = 'none';
+  gameArea.style.display = 'block';
+  loadNewPokemon();
+}
+
+function backToDifficultyScreen() {
+  gameArea.style.display = 'none';
+  difficultyScreen.style.display = 'block';
+}
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => startGame(btn.dataset.diff));
+});
+
+guessBtn.addEventListener('click', handleGuess);
+guessInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleGuess();
+});
+newGameBtn.addEventListener('click', loadNewPokemon);
+changeDifficultyBtn.addEventListener('click', backToDifficultyScreen);
+</script>
+</body>
+</html>
